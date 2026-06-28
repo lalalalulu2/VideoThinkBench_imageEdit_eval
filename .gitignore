@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+
+# Local model/data/evaluation artifacts.
+models/
+data/
+outputs/
+checkpoints/
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.zip
+
+# Environment files.
+.env
+.venv/
+venv/

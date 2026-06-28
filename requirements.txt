@@ -1,0 +1,12 @@
+accelerate
+diffusers
+numpy
+opencv-python-headless
+peft
+Pillow
+pytesseract
+requests
+safetensors
+torch
+tqdm
+transformers
