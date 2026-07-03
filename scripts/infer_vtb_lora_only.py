@@ -51,24 +51,37 @@ def closest_model_size(width: int, height: int, multiple: int, max_pixels: int) 
     return w, h, f"pixel_cap_{max_pixels}"
 
 
+def first_existing(dataset_root: Path, candidates: list[tuple[str, ...]]) -> Path:
+    for parts in candidates:
+        path = dataset_root.joinpath(*parts)
+        if path.exists():
+            return path
+    return dataset_root.joinpath(*candidates[0])
+
+
+def iter_data_dirs(base: Path) -> Iterable[Path]:
+    if not base.exists():
+        return
+    for d in sorted(base.iterdir()):
+        if (d / "data.json").exists():
+            yield d
+
+
 def iter_tasks(dataset_root: Path, categories: list[str]) -> Iterable[tuple[str, Path]]:
     if "eyeballing" in categories:
-        base = dataset_root / "eyeballing_puzzles" / "eyeballing_puzzles"
-        for d in sorted(base.iterdir()):
-            if (d / "data.json").exists():
-                yield f"eyeballing/{d.name}", d
+        base = first_existing(dataset_root, [("eyeballing_puzzles", "eyeballing_puzzles"), ("eyeballing_puzzles",)])
+        for d in iter_data_dirs(base):
+            yield f"eyeballing/{d.name}", d
     if "mazes" in categories:
-        base = dataset_root / "mazes" / "mazes"
-        for d in sorted(base.iterdir()):
-            if (d / "data.json").exists():
-                yield f"mazes/{d.name}", d
+        base = first_existing(dataset_root, [("mazes", "mazes"), ("mazes",)])
+        for d in iter_data_dirs(base):
+            yield f"mazes/{d.name}", d
     if "visual" in categories:
-        base = dataset_root / "visual_puzzles" / "visual_puzzles"
-        for d in sorted(base.iterdir()):
-            if (d / "data.json").exists():
-                yield f"visual/{d.name}", d
+        base = first_existing(dataset_root, [("visual_puzzles", "visual_puzzles"), ("visual_puzzles",)])
+        for d in iter_data_dirs(base):
+            yield f"visual/{d.name}", d
     if "arcagi" in categories:
-        d = dataset_root / "arcagi" / "arcagi"
+        d = first_existing(dataset_root, [("arcagi", "arcagi"), ("arcagi",)])
         if (d / "data.json").exists():
             yield "arcagi/arcagi", d
 

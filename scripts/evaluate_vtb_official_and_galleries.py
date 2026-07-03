@@ -23,6 +23,12 @@ COLOR_VISUAL_TASKS = {
     "rectangle_height_color",
 }
 SHAPE_VISUAL_TASKS = {"size_grid", "shape_reflect", "shape_size_grid", "size_cycle"}
+CATEGORY_LABELS = {
+    "arcagi": "ARC-AGI-2",
+    "eyeballing": "Eyeballing_Puzzles",
+    "mazes": "Mazes",
+    "visual": "Visual_Puzzles",
+}
 
 
 def resolve_path(base: Path, value: str | Path) -> Path:
@@ -228,7 +234,9 @@ def result_lines(result: dict[str, Any]) -> list[str]:
     lines: list[str] = []
     if task.startswith("mazes/"):
         lines.append(str(result.get("message", "")))
-        lines.append(f"red={result.get('red_pixel_count')} walls={result.get('overlaps_walls')} connected={result.get('connected')}")
+        output_size = result.get("output_size") or []
+        out = "x".join(str(x) for x in output_size if x is not None)
+        lines.append(f"red={result.get('red_pixel_count')} out={out}")
     elif task.startswith("eyeballing/"):
         lines.append(str(result.get("message", "")))
         lines.append(f"centroid={result.get('red_centroid')}")
@@ -241,7 +249,21 @@ def result_lines(result: dict[str, Any]) -> list[str]:
     return lines
 
 
-def make_gallery(task: str, rows: list[dict[str, Any]], out_path: Path, title_prefix: str, project_root: Path) -> None:
+def gallery_subtitle(task: str, rows: list[dict[str, Any]], dataset_label: str) -> str:
+    group, task_name = task.split("/", 1)
+    category = CATEGORY_LABELS.get(group, group)
+    prefix = f"VideoThinkBench {dataset_label} {category}/{task_name}"
+    if task.startswith("mazes/"):
+        wall = sum(1 for r in rows if bool(r.get("overlaps_walls")))
+        missed_start = sum(1 for r in rows if not bool(r.get("touches_start")))
+        missed_goal = sum(1 for r in rows if not bool(r.get("touches_goal")))
+        disconnected = sum(1 for r in rows if not bool(r.get("connected")))
+        return f"{prefix} | official strict evaluator | wall:{wall} missed_start:{missed_start} missed_goal:{missed_goal} disconnected:{disconnected}"
+    modes = sorted({str(r.get("official_mode")) for r in rows})
+    return f"{prefix} | official evaluator | mode:{', '.join(modes)}"
+
+
+def make_gallery(task: str, rows: list[dict[str, Any]], out_path: Path, title_prefix: str, project_root: Path, dataset_label: str) -> None:
     cols = 5
     card_w = 230
     image_h = 300
@@ -262,8 +284,7 @@ def make_gallery(task: str, rows: list[dict[str, Any]], out_path: Path, title_pr
     ok = sum(1 for r in rows if r.get("is_correct"))
     title = f"{title_prefix} {task.replace('/', '_')}: {ok}/{len(rows)} PASS"
     draw.text((margin, 12), title, fill=(31, 41, 55), font=title_font)
-    modes = sorted({str(r.get("official_mode")) for r in rows})
-    draw.text((margin, 44), f"official evaluator/mode: {', '.join(modes)} | lora-only single image edit", fill=(75, 85, 99), font=sub_font)
+    draw.text((margin, 44), gallery_subtitle(task, rows, dataset_label), fill=(75, 85, 99), font=sub_font)
     draw.rectangle((margin, 66, margin + 14, 80), fill=(16, 185, 129))
     draw.text((margin + 20, 64), "PASS", fill=(31, 41, 55), font=sub_font)
     draw.rectangle((margin + 84, 66, margin + 98, 80), fill=(239, 68, 68))
@@ -307,6 +328,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mybenchmark-root", type=Path, default=REPO_ROOT / "third_party" / "MyBenchmark")
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--title-prefix", default="Qwen-Image-Edit LoRA-only official eval")
+    parser.add_argument("--dataset-label", default="minitest")
     return parser.parse_args()
 
 
@@ -334,7 +356,7 @@ def main() -> None:
     for task, task_rows in sorted(by_task.items()):
         task_rows.sort(key=lambda r: str(r.get("id")))
         safe = task.replace("/", "__")
-        make_gallery(task, task_rows, gallery_dir / f"{safe}.png", args.title_prefix, project_root)
+        make_gallery(task, task_rows, gallery_dir / f"{safe}.png", args.title_prefix, project_root, args.dataset_label)
 
     print(json.dumps({"summary_path": str(output_dir / "official_eval_summary.json"), "gallery_dir": str(gallery_dir)}, ensure_ascii=False, indent=2))
 
